@@ -6,14 +6,16 @@ use strict;
 use warnings;
 
 use Exporter 'import';
-our @EXPORT_OK = qw(create_internet_shortcuts create_shortcuts create_file_assoc);
+our @EXPORT_OK = qw(create_internet_shortcuts create_shortcuts create_file_assoc set_user_env);
 
 use lib q(.);
-use File::Path qw( mkpath );
 use File::Spec::Functions qw(catfile);
 use File::Basename qw(basename);
 use Config;
 use Cwd qw(cwd);
+use JSON;
+use List::MoreUtils qw ( apply uniq );
+use Path::Tiny;
 
 use Win32;
 use Win32::API;
@@ -28,8 +30,8 @@ my $ORGANIZATION = 'ActiveState';
 my $PROJECT      = 'Perl-5.32';
 my $NAMESPACE    = "$ORGANIZATION/$PROJECT";
 my $PLATFORM_URL = "https://platform.activestate.com/$NAMESPACE";
-my $STATE_ICO    = "state.ico";
-my $WEB_ICO      = "web.ico";
+my $STATE_ICO    = 'state.ico';
+my $WEB_ICO      = 'web.ico';
 
 # Import Win32 function: `void SHChangeNotify(int eventId, int flags, IntPtr item1, IntPtr item2)`
 
@@ -55,8 +57,8 @@ sub make_path {
     my $base = shift;
 
     unless (-d $base) {
-        my $success = mkpath($base);
-	die "Couldn't create path '$base': $!" unless $success == 1;
+        my $success = path($base)->mkpath;
+        die "Couldn't create path '$base': $!" unless $success == 1;
     }
 }
 
@@ -66,10 +68,10 @@ sub create_internet_shortcut {
     my $iconPath = shift;
 
     if ( -e $lnkPath ) {
-        unlink $lnkPath;
+        unlink $lnkPath or die $!;
     }
 
-    my $str = <<END;
+    my $str = <<'END';
 [InternetShortcut]
 URL=${target}
 IconFile=${iconPath}
@@ -77,8 +79,8 @@ IconIndex=0
 END
 
     open(FH, '>', $lnkPath) or die "Couldn't create internet shortcut '$target': $!";
-    print FH $str;
-    close(FH);
+    print FH $str or die $!;
+    close(FH) or die $!;
 
     return;
 }
@@ -91,7 +93,7 @@ sub create_shortcut {
     my $location = shift;
 
     if ( -e $lnkPath ) {
-        unlink $lnkPath;
+        unlink $lnkPath or die $!;
     }
 
     #print "Creating application shortcut: $lnkPath -> $target\n";
@@ -110,7 +112,7 @@ sub create_shortcut {
 sub create_internet_shortcuts {
     my $target  = $PLATFORM_URL;
     my $lnkName = "$NAMESPACE Web.url";
-    $lnkName =~ s#/# #;
+    $lnkName =~ s{/}{ };
     my $icon = catfile(cwd, $WEB_ICO);
 
     my $start_menu_base = catfile(start_menu_path(), $ORGANIZATION);
@@ -125,11 +127,11 @@ sub create_internet_shortcuts {
 }
 
 sub create_shortcuts {
-    my $target  = "%windir%\\system32\\cmd.exe";
-    my $args     = "/k state activate";
+    my $target  = '%windir%\\system32\\cmd.exe';
+    my $args     = '/k state activate';
     my $icon = catfile(cwd, $STATE_ICO);
     my $lnkName = "$NAMESPACE CLI.lnk";
-    $lnkName =~ s#/# #;
+    $lnkName =~ s{/}{ };
 
     my $start_menu_base = catfile(start_menu_path(), $ORGANIZATION);
     make_path($start_menu_base);
@@ -151,11 +153,11 @@ sub create_file_assoc {
 
     # file type description
     $Registry->{"CUser\\Software\\Classes\\${prog_id}\\"} = {
-        "\\" => "$cmd_name document",
-        "shell\\" => {
-            "open\\" => {
-                "command\\" => {
-                    "\\" => "$cmd %1 %*"
+        '\\' => "$cmd_name document",
+        'shell\\' => {
+            'open\\' => {
+                'command\\' => {
+                    '\\' => "$cmd %1 %*"
                 }
             }
         }
@@ -163,12 +165,58 @@ sub create_file_assoc {
 
     foreach (@$assocsRef) {
         #print "Creating file association: $_: $prog_id\n";
-        $Registry->{"CUser\\Software\\Classes\\$_\\"} = {"" => $prog_id};
+        $Registry->{"CUser\\Software\\Classes\\$_\\"} = {q{} => $prog_id};
     }
 
     update_win32_shell();
 
     return;
 }
+
+sub find_runtime_json {
+    my $perl = path($Config{perlpath});
+
+    die "Can't find perl" unless $perl->exists;
+
+    my $runtime_dir = $perl->parent(2)->child('_runtime_store');
+    die "Can't find runtime_dir" unless $runtime_dir->exists;
+
+    my $runtime_json = $runtime_dir->child('runtime.json');
+    die q{Cannot find runtime.json} unless $runtime_json->exists();
+
+    return $runtime_json;
+}
+
+sub get_runtime_env {
+    my $json_text = find_runtime_json()->slurp_utf8;
+    my $runtime = decode_json ( $json_text );
+
+    my %rt_env;
+    for my $env_var ( @{ $runtime->{env} } ) {
+        my $var = $env_var->{env_name};
+        my @vals = uniq( apply { s{/}{\\}g } @{ $env_var->{values} } );
+        my $sep = $env_var->{separator};
+        if ( $env_var->{inherit} ) {
+            my @base = split($sep, $ENV{$var});
+            if ( $env_var->{join} eq 'prepend' ) {
+                unshift @vals, @base;
+            } else {
+                push @vals, @base;
+            }
+        }
+        $rt_env{$var} = join $sep, @vals;
+    }
+    return \%rt_env;
+}
+
+sub set_system_user_env {
+    my $new_env = get_runtime_env();
+
+    for my $key ( @{ $new_env } ) {
+        $Registry->{"HKEY_USERS\\.DEFAULT\\Environment\\$key"} = \
+            $new_env->{$key}
+    }
+}
+
 
 1;
