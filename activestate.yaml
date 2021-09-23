@@ -1,4 +1,4 @@
-project: https://platform.activestate.com/ActiveState/Perl-5.32?branch=main&commitID=d6034680-b1ed-46a5-89e4-ac5df256fd98
+project: https://platform.activestate.com/shaunl/MIDAS-Perl?branch=main&commitID=81eed2e5-e3f6-4328-8819-cb4deb994f15
 
 scripts:
   - name: setup
@@ -12,7 +12,7 @@ scripts:
       create_shortcuts();
       create_file_assoc();
       print "Successfully created Desktop Shortcuts and File Associations.\n\n"
-events:
-  - name: first-activate
-    if: eq .OS.Name "Windows"
-    value: perl $scripts.setup.path()
+# events:
+#  - name: first-activate
+#    if: eq .OS.Name "Windows"
+#    value: perl $scripts.setup.path()
