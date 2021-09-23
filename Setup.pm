@@ -6,7 +6,7 @@ use strict;
 use warnings;
 
 use Exporter 'import';
-our @EXPORT_OK = qw(create_internet_shortcuts create_shortcuts create_file_assoc set_user_env);
+our @EXPORT_OK = qw(create_internet_shortcuts create_shortcuts create_file_assoc set_system_user_env);
 
 use lib q(.);
 use File::Spec::Functions qw(catfile);
@@ -176,13 +176,13 @@ sub create_file_assoc {
 sub find_runtime_json {
     my $perl = path($Config{perlpath});
 
-    die "Can't find perl" unless $perl->exists;
+    die q{Can't find perl} unless $perl->exists;
 
     my $runtime_dir = $perl->parent(2)->child('_runtime_store');
-    die "Can't find runtime_dir" unless $runtime_dir->exists;
+    die q{Can't find runtime_dir} unless $runtime_dir->exists;
 
     my $runtime_json = $runtime_dir->child('runtime.json');
-    die q{Cannot find runtime.json} unless $runtime_json->exists();
+    die q{Can't find runtime.json} unless $runtime_json->exists();
 
     return $runtime_json;
 }
@@ -194,7 +194,7 @@ sub get_runtime_env {
     my %rt_env;
     for my $env_var ( @{ $runtime->{env} } ) {
         my $var = $env_var->{env_name};
-        my @vals = uniq( apply { s{/}{\\}g } @{ $env_var->{values} } );
+        my @vals = @{ $env_var->{values} };
         my $sep = $env_var->{separator};
         if ( $env_var->{inherit} ) {
             my @base = split($sep, $ENV{$var});
@@ -204,6 +204,7 @@ sub get_runtime_env {
                 push @vals, @base;
             }
         }
+        @vals = uniq( apply { s{/}{\\}g } @vals );
         $rt_env{$var} = join $sep, @vals;
     }
     return \%rt_env;
@@ -212,9 +213,10 @@ sub get_runtime_env {
 sub set_system_user_env {
     my $new_env = get_runtime_env();
 
-    for my $key ( @{ $new_env } ) {
-        $Registry->{"HKEY_USERS\\.DEFAULT\\Environment\\$key"} = \
-            $new_env->{$key}
+    for my $key ( keys %{ $new_env } ) {
+        print("$key=" . $new_env->{$key} . "\n") or die $!;
+        # $Registry->{"HKEY_USERS\\.DEFAULT\\Environment\\$key"} = \
+        #     $new_env->{$key}
     }
 }
 
