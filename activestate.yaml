@@ -1,4 +1,4 @@
-project: https://platform.activestate.com/shaunl/MIDAS-Perl?branch=main&commitID=81eed2e5-e3f6-4328-8819-cb4deb994f15
+project: https://platform.activestate.com/shaunl/MIDAS-Perl?branch=main&commitID=a6728b1b-c544-433e-8d86-2124b9b8000c
 
 scripts:
   - name: setup
