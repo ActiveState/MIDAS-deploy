@@ -214,9 +214,7 @@ sub set_system_user_env {
     my $new_env = get_runtime_env();
 
     for my $key ( keys %{ $new_env } ) {
-        print("$key=" . $new_env->{$key} . "\n") or die $!;
-        # $Registry->{"HKEY_USERS\\.DEFAULT\\Environment\\$key"} = \
-        #     $new_env->{$key}
+        $Registry->{"HKEY_USERS\\.DEFAULT\\Environment\\$key"} = $new_env->{$key}
     }
 }
 
