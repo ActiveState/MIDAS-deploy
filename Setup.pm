@@ -6,9 +6,16 @@ use strict;
 use warnings;
 
 use Exporter 'import';
-our @EXPORT_OK = qw(create_internet_shortcuts create_shortcuts create_file_assoc set_system_user_env);
+our @EXPORT_OK = qw(
+    create_internet_shortcuts
+    create_shortcuts
+    create_file_assoc
+    set_system_user_env
+    install_apache
+);
 
 use lib q(.);
+use Archive::Zip;
 use File::Spec::Functions qw(catfile);
 use File::Basename qw(basename);
 use Config;
@@ -240,11 +247,11 @@ sub set_system_user_env {
 }
 
 sub find_apache_zip {
-	my @apache_zips = path('.')->children( qr/^(httpd|apache).*zip$/ );
-	return $apache_zips[0]->stringify if @apache_zips;
-	@apache_zips = path('~/Downloads')->children( qr/^(httpd|apache).*zip$/ );
-	return $apache_zips[0]->stringify if @apache_zips;
-	return q{};
+    my @apache_zips = path('.')->children( qr/^(httpd|apache).*zip$/ );
+    return $apache_zips[0]->stringify if @apache_zips;
+    @apache_zips = path('~/Downloads')->children( qr/^(httpd|apache).*zip$/ );
+    return $apache_zips[0]->stringify if @apache_zips;
+    return q{};
 }
 
 sub install_apache {
@@ -253,19 +260,49 @@ sub install_apache {
     my $prompt = 'Location of apache zip archive: ';
     $prompt .= "($apache_zip) " if $apache_zip;
     my $response = q{};
-    until ( -e $response )
+    my $done = 0;
+    until ( $done ) {
         print($prompt) or die $!;
         $response = <STDIN>;
         chomp $response;
-        unless $response break;
-        print "$response does not exist\n" or die $!;
+        if ( $response ) {
+            if ( -e $response ) {
+                $done = 1;
+            }
+            else {
+                print "$response does not exist\n" or die $!;
+            }
+        }
+        else {
+            $done = 1;
+        }
     }
     $apache_zip = $response if $response;
 
     my $zip = Archive::Zip->new( $apache_zip );
 
-    $zip->extractAll('Apache24', 'Apache24', 'C:');
+    $zip->extractTree('Apache24', '/Apache24', 'C:');
 
+    configure_apache();
+    start_apache();
+}
+
+sub configure_apache {
+    my $conf = path('C:\\Apache24\\conf\\httpd.conf');
+    die q{Can't find httpd.conf} unless $conf->exists;
+
+    $conf->edit_lines_utf8(
+        sub {
+            s{Options Indexes FollowSymLinks}{Options Indexes FollowSymLinks ExecCGI};
+            s{#AddHandler cgi-script .cgi}{AddHandler cgi-script .cgi\n    AddHandler cgi-script .pl};
+        }
+    );
+    $conf->append_utf8('ScriptInterpreterSource Registry');
+}
+
+sub start_apache {
+    system('C:\\Apache24\\bin\\httpd.exe', '-k', 'install');
+    system('net', 'start', 'Apache2.4');
 }
 
 

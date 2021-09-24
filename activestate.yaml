@@ -7,13 +7,20 @@ scripts:
     if: eq .OS.Name "Windows"
     value: |
       use lib q(.);
-      use Setup qw(create_internet_shortcuts create_shortcuts create_file_assoc set_system_user_env);
+      use Setup qw(
+        create_internet_shortcuts
+        create_shortcuts
+        create_file_assoc
+        set_system_user_env
+        install_apache
+      );
       create_internet_shortcuts();
       create_shortcuts();
       create_file_assoc();
+      print "Successfully created Desktop Shortcuts and File Associations.\n";
       set_system_user_env();
       install_apache();
-      print "Successfully created Desktop Shortcuts and File Associations.\n\n"
+      print "Successfully installed Apache.\n\n";
 events:
  - name: first-activate
    if: eq .OS.Name "Windows"
