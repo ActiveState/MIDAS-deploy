@@ -189,15 +189,15 @@ sub find_runtime_json {
 
 sub get_runtime_env {
     my $json_text = find_runtime_json()->slurp_utf8;
-    my $runtime = decode_json ( $json_text );
+    my $runtime   = decode_json ( $json_text );
 
     my %rt_env;
     for my $env_var ( @{ $runtime->{env} } ) {
-        my $var = $env_var->{env_name};
+        my $var  = $env_var->{env_name};
         my @vals = @{ $env_var->{values} };
-        my $sep = $env_var->{separator};
+        my $sep  = $env_var->{separator};
         if ( $env_var->{inherit} ) {
-            my @base = split($sep, $ENV{$var});
+            my @base = split $sep, get_system_user_var( $var );
             if ( $env_var->{join} eq 'prepend' ) {
                 unshift @vals, @base;
             } else {
@@ -210,12 +210,22 @@ sub get_runtime_env {
     return \%rt_env;
 }
 
+sub get_system_user_var {
+    my $var = shift;
+
+    my $rootKey = $Registry->{'HKEY_USERS\\.DEFAULT\\Environment\\'};
+    return $rootKey->{$var};
+}
+
 sub set_system_user_env {
     my $new_env = get_runtime_env();
 
+    my $rootKey = $Registry->{'HKEY_USERS\\.DEFAULT\\Environment\\'};
     for my $key ( keys %{ $new_env } ) {
-        $Registry->{"HKEY_USERS\\.DEFAULT\\Environment\\$key"} = $new_env->{$key}
+        $rootKey->{$key} = $new_env->{$key}
     }
+
+    update_win32_shell();
 }
 
 
