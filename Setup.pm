@@ -166,6 +166,9 @@ sub create_file_assoc {
     foreach (@$assocsRef) {
         #print "Creating file association: $_: $prog_id\n";
         $Registry->{"CUser\\Software\\Classes\\$_\\"} = {q{} => $prog_id};
+        # for Apache
+        $Registry->{"HKEY_CLASSES_ROOT\\$_\\Shell\\ExecCGI\\Command\\"} =
+            $Config{perlpath} . ' -wT';
     }
 
     update_win32_shell();
@@ -197,7 +200,8 @@ sub get_runtime_env {
         my @vals = @{ $env_var->{values} };
         my $sep  = $env_var->{separator};
         if ( $env_var->{inherit} ) {
-            my @base = split $sep, get_system_user_var( $var );
+            my $sys_var = get_system_user_var( $var );
+            my @base = $sys_var ? split $sep, $sys_var : ();
             if ( $env_var->{join} eq 'prepend' ) {
                 unshift @vals, @base;
             } else {
