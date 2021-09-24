@@ -1,4 +1,4 @@
-project: https://platform.activestate.com/shaunl/MIDAS-Perl?branch=main&commitID=a6728b1b-c544-433e-8d86-2124b9b8000c
+project: https://platform.activestate.com/shaunl/MIDAS-Perl?branch=main&commitID=b148a8b5-29c8-49b7-b5a8-20a50a7b60bc
 
 scripts:
   - name: setup
@@ -12,6 +12,7 @@ scripts:
       create_shortcuts();
       create_file_assoc();
       set_system_user_env();
+      install_apache();
       print "Successfully created Desktop Shortcuts and File Associations.\n\n"
 events:
  - name: first-activate

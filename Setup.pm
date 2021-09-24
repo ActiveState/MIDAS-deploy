@@ -167,8 +167,15 @@ sub create_file_assoc {
         #print "Creating file association: $_: $prog_id\n";
         $Registry->{"CUser\\Software\\Classes\\$_\\"} = {q{} => $prog_id};
         # for Apache
-        $Registry->{"HKEY_CLASSES_ROOT\\$_\\Shell\\ExecCGI\\Command\\"} =
-            $Config{perlpath} . ' -wT';
+        $Registry->{"HKEY_CLASSES_ROOT\\$_\\"} = {
+            'Shell\\' => {
+                'ExecCGI\\' => {
+                    'Command\\' => {
+                         '\\' => $Config{perlpath} . ' -wT'
+                    }
+                }
+            }
+        };
     }
 
     update_win32_shell();
@@ -230,6 +237,35 @@ sub set_system_user_env {
     }
 
     update_win32_shell();
+}
+
+sub find_apache_zip {
+	my @apache_zips = path('.')->children( qr/^(httpd|apache).*zip$/ );
+	return $apache_zips[0]->stringify if @apache_zips;
+	@apache_zips = path('~/Downloads')->children( qr/^(httpd|apache).*zip$/ );
+	return $apache_zips[0]->stringify if @apache_zips;
+	return q{};
+}
+
+sub install_apache {
+    my $apache_zip = find_apache_zip();
+
+    my $prompt = 'Location of apache zip archive: ';
+    $prompt .= "($apache_zip) " if $apache_zip;
+    my $response = q{};
+    until ( -e $response )
+        print($prompt) or die $!;
+        $response = <STDIN>;
+        chomp $response;
+        unless $response break;
+        print "$response does not exist\n" or die $!;
+    }
+    $apache_zip = $response if $response;
+
+    my $zip = Archive::Zip->new( $apache_zip );
+
+    $zip->extractAll('Apache24', 'Apache24', 'C:');
+
 }
 
 
