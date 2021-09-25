@@ -12,6 +12,7 @@ our @EXPORT_OK = qw(
     create_file_assoc
     set_system_user_env
     install_apache
+    install_servercheck
 );
 
 use lib q(.);
@@ -58,6 +59,26 @@ sub desktop_dir_path {
 
 sub start_menu_path {
     return Win32::GetFolderPath(Win32::CSIDL_STARTMENU());
+}
+
+sub proceed {
+    my $done = 0;
+    until ( $done ) {
+        print 'Proceed? [Yn] ' or die $!;
+        my $response = <STDIN>;
+        chomp $response;
+        $_ = $response;
+        if ( m{n}i ) {
+            print "exiting\n" or die $!;
+            exit;
+        }
+        elsif ( m{y}i || $_ eq q{} ) {
+            return;
+        }
+        else {
+            print "Unrecognised response\n" or die $!;
+        }
+    }
 }
 
 sub make_path {
@@ -117,6 +138,11 @@ sub create_shortcut {
 }
 
 sub create_internet_shortcuts {
+    print <<'ENDMSG' or die $!;
+
+About to create desktop and start menu shortcuts for ActiveState Platform resources
+ENDMSG
+    proceed();
     my $target  = $PLATFORM_URL;
     my $lnkName = "$NAMESPACE Web.url";
     $lnkName =~ s{/}{ };
@@ -134,6 +160,11 @@ sub create_internet_shortcuts {
 }
 
 sub create_shortcuts {
+    print <<'ENDMSG' or die $!;
+
+About to create desktop and start menu shortcuts for ActiveState perl CLI
+ENDMSG
+    proceed();
     my $target  = '%windir%\\system32\\cmd.exe';
     my $args     = '/k state activate';
     my $icon = catfile(cwd, $STATE_ICO);
@@ -152,6 +183,11 @@ sub create_shortcuts {
 }
 
 sub create_file_assoc {
+    print <<'ENDMSG' or die $!;
+
+About to create file associations for perl
+ENDMSG
+    proceed();
     my $cmd       = $Config{perlpath};
     my $assocsRef = ['.pl', '.perl'];
 
@@ -187,6 +223,7 @@ sub create_file_assoc {
 
     update_win32_shell();
 
+    print "Successfully created Desktop Shortcuts and File Associations.\n" or die $!;
     return;
 }
 
@@ -236,6 +273,11 @@ sub get_system_user_var {
 }
 
 sub set_system_user_env {
+    print <<'ENDMSG' or die $!;
+
+About to set environment for SYSTEM user's access to perl
+ENDMSG
+    proceed();
     my $new_env = get_runtime_env();
 
     my $rootKey = $Registry->{'HKEY_USERS\\.DEFAULT\\Environment\\'};
@@ -254,7 +296,25 @@ sub find_apache_zip {
     return q{};
 }
 
+sub find_servercheck_script {
+    my @servercheck_scripts = path('.')->children( qr/^servercheck.pl$/ );
+    return $servercheck_scripts[0]->stringify if @servercheck_scripts;
+    @servercheck_scripts = path('~/Downloads')->children( qr/^servercheck.pl$/ );
+    return $servercheck_scripts[0]->stringify if @servercheck_scripts;
+    return q{};
+}
+
 sub install_apache {
+    print <<'ENDMSG' or die $!;
+
+About to install Apache.  Before proceeding with this step, please download the zip file
+containing Apache from
+
+https://apachelounge.com/download
+
+(cut and paste this link into your browser)
+ENDMSG
+    proceed();
     my $apache_zip = find_apache_zip();
 
     my $prompt = 'Location of apache zip archive: ';
@@ -285,6 +345,7 @@ sub install_apache {
 
     configure_apache();
     start_apache();
+    print "Successfully installed Apache\n" or die $!;
 }
 
 sub configure_apache {
@@ -303,6 +364,52 @@ sub configure_apache {
 sub start_apache {
     system('C:\\Apache24\\bin\\httpd.exe', '-k', 'install');
     system('net', 'start', 'Apache2.4');
+}
+
+sub install_servercheck {
+    print <<'ENDMSG' or die $!;
+
+About to install MIDAS servercheck.pl.  Before proceeding with this step, please
+download the servercheck script from
+
+https://mid.as/download/servercheck.pl
+
+(cut and paste this link into your browser)
+ENDMSG
+    proceed();
+    my $servercheck_script = find_servercheck_script();
+
+    my $prompt = 'Location of servercheck.pl script: ';
+    $prompt .= "($servercheck_script) " if $servercheck_script;
+    my $response = q{};
+    my $done = 0;
+    until ( $done ) {
+        print($prompt) or die $!;
+        $response = <STDIN>;
+        chomp $response;
+        if ( $response ) {
+            if ( -e $response ) {
+                $done = 1;
+            }
+            else {
+                print "$response does not exist\n" or die $!;
+            }
+        }
+        else {
+            $done = 1;
+        }
+    }
+    $servercheck_script = $response if $response;
+    path($servercheck_script)->copy('C:\\Apache24\\htdocs\\servercheck.pl');
+
+    print <<'ENDMSG' or die $!;
+Successfully installed servercheck.pl
+To verify server readiness, visit
+
+http://127.0.0.1/servercheck.pl
+
+(cut and paste this link into your browser)
+ENDMSG
 }
 
 

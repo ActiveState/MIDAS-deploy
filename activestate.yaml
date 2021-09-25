@@ -13,14 +13,14 @@ scripts:
         create_file_assoc
         set_system_user_env
         install_apache
+        install_servercheck
       );
       create_internet_shortcuts();
       create_shortcuts();
       create_file_assoc();
-      print "Successfully created Desktop Shortcuts and File Associations.\n";
       set_system_user_env();
       install_apache();
-      print "Successfully installed Apache.\n\n";
+      install_servercheck();
 events:
  - name: first-activate
    if: eq .OS.Name "Windows"
